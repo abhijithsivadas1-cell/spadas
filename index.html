@@ -31,10 +31,34 @@
   <section><iframe src="asteroids.html" title="Asteroids"></iframe></section>
   <section><iframe src="asteroidslist.html" id="indexFrame" title="Index"></iframe></section>
   
-  <!-- New PPT page -->
+  <!-- New PPT page (REPLACED: now shows local PDF preview + open-in-new-tab link) -->
   <section id="pptSection" title="PPT Viewer">
-    <!-- Replace LOCAL_PATH with your hosted URL if needed -->
-    <iframe id="pptViewer" src="https://view.officeapps.live.com/op/embed.aspx?src=ateroid%20history.pptx" title="Asteroid History PPT"></iframe>
+    <!--
+      Replaced the previous Office online embed (which required a public https URL)
+      with a local PDF preview and a clear "Open in new tab" link that opens the PDF
+      in a new window/tab when clicked. The PDF file is referenced as:
+      "ateroid%20history.pdf" (URL-encoded space) because your uploaded file name
+      contains a space. If you rename the file to remove spaces, update both values accordingly.
+    -->
+    <div style="width:100%;height:100vh;display:flex;flex-direction:column;">
+      <div style="flex:1;min-height:0;">
+        <!-- object provides an inline preview in browsers that support it -->
+        <object data="ateroid%20history.pdf" type="application/pdf" width="100%" height="100%" aria-label="Asteroid History PDF">
+          <!-- Fallback content for browsers that can't embed PDFs -->
+          <div style="padding:18px;color:#fff;">
+            <p><strong>PDF preview is not available in this browser.</strong></p>
+            <p>You can open the PDF in a new tab using the link below:</p>
+            <p><a href="ateroid%20history.pdf" target="_blank" rel="noopener noreferrer" style="color:gold;font-weight:700;">Open Asteroid History PDF</a></p>
+          </div>
+        </object>
+      </div>
+
+      <div style="padding:12px;text-align:center;background:rgba(0,0,0,0.4);">
+        <a href="ateroid%20history.pdf" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:8px 12px;border-radius:6px;background:gold;color:#000;font-weight:700;text-decoration:none;">
+          Open Asteroid History PDF
+        </a>
+      </div>
+    </div>
   </section>
 
   <section><iframe src="impactor _2025.html" title="Impactor 2025"></iframe></section>
