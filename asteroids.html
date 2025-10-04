@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Asteroid Simulation</title>
+  <style>
+    body,html {margin:0; height:100%; overflow:hidden; background:#000; color:#fff; font-family:sans-serif;}
+    #info {position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); padding:8px 12px; border-radius:6px;}
+    #details {position:absolute; top:10px; right:10px; background:#fff; color:#000; padding:12px; width:250px; height:auto;}
+    canvas {display:block;}
+  </style>
+</head>
+<body>
+  <div id="info">Drag = rotate • Scroll = zoom • Tap/Click asteroid for info</div>
+  <div id="details">Tap/Click an asteroid for info</div>
+
+  <!-- Three.js -->
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <script>
+  const ASTEROIDS = [
+    {name: '2025 FA22', date: '18/09/2025'},
+    {name: '2025 QD8', date: '03/09/2025'},
+    {name: '2025 OS', date: '18/07/2025'},
+    {name: '2025 SU4', date: '24/09/2025'},
+    {name: '2025 RJ2', date: '15/09/2025'},
+    {name: '2025 PU', date: '02/08/2025'},
+    {name: '2025 OL1', date: '30/07/2025'},
+    {name: '2025 BR2', date: '31/01/2025'},
+    {name: '2025 PN7', date: '02/08/2025'},
+    {name: '2024 YR4', date: '27/12/2024'},
+    {name: '2024 PT5', date: '07/08/2024'},
+    {name: '(243) Ida', date: '29/09/1884'},
+    {name: '2025 RHA', date: '29/09/2025'},
+    {name: '2025 SA3', date: '30/09/2025'},
+    {name: '2024 MK', date: '29/06/2024'},
+    {name: '2024 ON', date: '17/09/2024'},
+    {name: '2025 SS3', date: '26/09/2025'},
+    {name: '2025 RE5', date: '26/09/2025'}
+  ];
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
+  camera.position.set(0,30,100);
+
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+  // === Lighting ===
+  const sun = new THREE.DirectionalLight(0xffffff, 2);
+  sun.position.set(150, 100, 200);
+  scene.add(sun);
+  scene.add(new THREE.AmbientLight(0x555555));
+
+  const loader = new THREE.TextureLoader();
+
+  const earthTexture = loader.load("https://threejs.org/examples/textures/land_ocean_ice_cloud_2048.jpg");
+  const earthBump = loader.load("https://threejs.org/examples/textures/earthbump1k.jpg");
+  const earthSpec = loader.load("https://threejs.org/examples/textures/earthspec1k.jpg");
+  const cloudsTexture = loader.load("https://threejs.org/examples/textures/earthcloudmaptrans.jpg");
+  const starsTexture = loader.load("https://threejs.org/examples/textures/galaxy_starfield.png");
+
+  const earth = new THREE.Mesh(
+    new THREE.SphereGeometry(12, 128, 128),
+    new THREE.MeshPhongMaterial({
+      map: earthTexture,
+      bumpMap: earthBump,
+      bumpScale: 0.4,
+      specularMap: earthSpec,
+      specular: new THREE.Color("grey"),
+      shininess: 10
+    })
+  );
+  scene.add(earth);
+
+  const clouds = new THREE.Mesh(
+    new THREE.SphereGeometry(12.2, 64, 64),
+    new THREE.MeshPhongMaterial({
+      map: cloudsTexture,
+      transparent: true,
+      opacity: 0.4,
+      depthWrite: false
+    })
+  );
+  scene.add(clouds);
+
+  // === Background stars (sphere) ===
+  const stars = new THREE.Mesh(
+    new THREE.SphereGeometry(2000, 64, 64),
+    new THREE.MeshBasicMaterial({ map: starsTexture, side: THREE.BackSide })
+  );
+  scene.add(stars);
+
+  // === Extra star field ===
+  const starGeometry = new THREE.BufferGeometry();
+  const starCount = 2000;
+  const positions = [];
+  for (let i=0; i<starCount; i++) {
+    const x = (Math.random() - 0.5) * 4000;
+    const y = (Math.random() - 0.5) * 4000;
+    const z = (Math.random() - 0.5) * 4000;
+    positions.push(x,y,z);
+  }
+  starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 3 });
+  const starPoints = new THREE.Points(starGeometry, starMaterial);
+  scene.add(starPoints);
+
+  // Asteroid textures
+  const rockDiffuse = loader.load("https://threejs.org/examples/textures/rock/rock_diffuse.jpg");
+  const rockNormal  = loader.load("https://threejs.org/examples/textures/rock/rock_normal.jpg");
+
+  function createAsteroid(size) {
+    const geo = new THREE.IcosahedronBufferGeometry(size, 3);
+    const pos = geo.attributes.position;
+    for (let i=0; i<pos.count; i++) {
+      let x = pos.getX(i);
+      let y = pos.getY(i);
+      let z = pos.getZ(i);
+      const offset = (Math.random()-0.5) * 0.5;
+      pos.setXYZ(i, x+offset, y+offset, z+offset);
+    }
+    geo.computeVertexNormals();
+
+    const colorTints = [0xcc9966, 0x888888, 0xaa7744, 0x999966, 0x666666];
+    const tint = new THREE.Color(colorTints[Math.floor(Math.random()*colorTints.length)]);
+
+    const mat = new THREE.MeshStandardMaterial({
+      map: rockDiffuse,
+      normalMap: rockNormal,
+      roughness: 0.9,
+      metalness: 0.1,
+      emissive: tint.clone().multiplyScalar(0.3),
+      emissiveIntensity: 0.7,
+      color: tint
+    });
+    return new THREE.Mesh(geo, mat);
+  }
+
+  const asteroids = [];
+  ASTEROIDS.forEach((a,i)=>{
+    // more varied asteroid sizes
+    const mesh = createAsteroid(0.8 + Math.random()*3.5);
+    const radius = 22 + i*3;
+    mesh.userData = {info:a, radius, angle:Math.random()*Math.PI*2, speed:0.002+Math.random()*0.004};
+    mesh.position.set(Math.cos(mesh.userData.angle)*radius,0,Math.sin(mesh.userData.angle)*radius);
+    scene.add(mesh);
+    asteroids.push(mesh);
+
+    // name labels
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.font = '28px Arial';
+    ctx.fillStyle = 'yellow';
+    ctx.fillText(a.name, 10, 40);
+    const texture = new THREE.CanvasTexture(canvas);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:texture, transparent:true}));
+    sprite.scale.set(12,3,1);
+    mesh.add(sprite);
+    sprite.position.set(0,2,0);
+  });
+
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+
+  function showAsteroidInfo(clientX, clientY){
+    mouse.x = (clientX/window.innerWidth)*2 - 1;
+    mouse.y = -(clientY/window.innerHeight)*2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(asteroids);
+    if(hits.length){
+      const data = hits[0].object.userData.info;
+      document.getElementById('details').innerHTML =
+        `<h3>${data.name}</h3><p>Last nearest approach on: ${data.date}</p>`;
+    }
+  }
+
+  window.addEventListener('click', (e)=> showAsteroidInfo(e.clientX, e.clientY));
+  window.addEventListener('touchstart', (e)=>{
+    if(e.touches.length > 0){
+      const touch = e.touches[0];
+      showAsteroidInfo(touch.clientX, touch.clientY);
+    }
+  });
+
+  function animate(){
+    requestAnimationFrame(animate);
+    earth.rotation.y += 0.0018;
+    clouds.rotation.y += 0.0022;
+    asteroids.forEach(m=>{
+      m.userData.angle += m.userData.speed;
+      m.position.x = Math.cos(m.userData.angle)*m.userData.radius;
+      m.position.z = Math.sin(m.userData.angle)*m.userData.radius;
+      m.rotation.x += 0.005;
+      m.rotation.y += 0.007;
+    });
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', ()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+  </script>
+</body>
+</html>

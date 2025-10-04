@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Asteroid Impact Countdown — 22 Dec 2032</title>
+  <style>
+    html,body{height:100%;margin:0;background:#000;color:#fff;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;overflow:hidden}
+    #container{position:relative;width:100%;height:100vh;overflow:hidden}
+    canvas{display:block}
+    .ui {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      background: rgba(0,0,0,0.6);
+      padding: 12px;
+      border-radius: 8px;
+      min-width: 300px;
+      line-height:1.4;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+    }
+    .ui h2{margin:0 0 8px 0;font-size:16px}
+    .big {font-family: monospace; font-size:18px; font-weight:600}
+    .muted{opacity:0.85;font-size:13px}
+    #controls{margin-top:10px;display:flex;gap:8px;align-items:center}
+    input[type="range"]{width:180px}
+    #legend{position:absolute;left:12px;bottom:12px;background:rgba(0,0,0,0.45);padding:8px;border-radius:8px;font-size:13px}
+    .danger {color:#ff6b6b}
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+
+  <div class="ui" id="countdownBox">
+    <h2>Countdown to impact</h2>
+    <div id="countdown" class="big">—</div>
+    <div class="muted" id="impactInfo"></div>
+
+    <div id="controls">
+      <label class="muted">Progress</label>
+      <input id="progress" type="range" min="0" max="1" step="0.0005" value="0">
+      <button id="autoBtn">Auto</button>
+    </div>
+  </div>
+
+  <div id="legend">
+    Drag slider or enable "Auto" to progress asteroid toward impact. When asteroid reaches Earth, simulation shows impact.
+  </div>
+
+  <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+
+  <script>
+  const impactDate = new Date(Date.UTC(2032, 11, 22, 0, 0, 0));
+  const asteroidDiameter_m = 150;
+  const entrySpeed_kms = 19.5;
+  const approachAngle_deg = 30;
+  const impactLongitude_deg = 173;
+  const impactLatitude_deg = 0;
+
+  const earthRadiusUnits = 20;
+  const earthRadius_km = 6371;
+  const unitsToKm = earthRadius_km / earthRadiusUnits;
+
+  const container = document.getElementById('container');
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 0.1, 10000);
+  camera.position.set(0, 0, 120);
+  camera.lookAt(0, 0, 0);
+
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  container.appendChild(renderer.domElement);
+
+  // === Lighting ===
+  const sun = new THREE.DirectionalLight(0xffffff, 2);
+  sun.position.set(150, 100, 200);
+  scene.add(sun);
+  scene.add(new THREE.AmbientLight(0x555555));
+
+  // === Earth textures (from asteroids.html) ===
+  const loader = new THREE.TextureLoader();
+  const earthTexture = loader.load("https://threejs.org/examples/textures/land_ocean_ice_cloud_2048.jpg");
+  const earthBump = loader.load("https://threejs.org/examples/textures/earthbump1k.jpg");
+  const earthSpec = loader.load("https://threejs.org/examples/textures/earthspec1k.jpg");
+  const cloudsTexture = loader.load("https://threejs.org/examples/textures/earthcloudmaptrans.jpg");
+  const starsTexture = loader.load("https://threejs.org/examples/textures/galaxy_starfield.png");
+
+  // === Earth ===
+  const earth = new THREE.Mesh(
+    new THREE.SphereGeometry(earthRadiusUnits, 128, 128),
+    new THREE.MeshPhongMaterial({
+      map: earthTexture,
+      bumpMap: earthBump,
+      bumpScale: 0.4,
+      specularMap: earthSpec,
+      specular: new THREE.Color("grey"),
+      shininess: 10
+    })
+  );
+  scene.add(earth);
+
+  // === Cloud layer ===
+  const clouds = new THREE.Mesh(
+    new THREE.SphereGeometry(earthRadiusUnits * 1.01, 64, 64),
+    new THREE.MeshPhongMaterial({
+      map: cloudsTexture,
+      transparent: true,
+      opacity: 0.4,
+      depthWrite: false
+    })
+  );
+  scene.add(clouds);
+
+  // === Background stars ===
+  const stars = new THREE.Mesh(
+    new THREE.SphereGeometry(2000, 64, 64),
+    new THREE.MeshBasicMaterial({ map: starsTexture, side: THREE.BackSide })
+  );
+  scene.add(stars);
+
+  // === Asteroid ===
+  const asteroidGeom = new THREE.IcosahedronGeometry(1.0, 1);
+  for (let i=0;i<asteroidGeom.attributes.position.count;i++){
+    asteroidGeom.attributes.position.setXYZ(i,
+      asteroidGeom.attributes.position.getX(i)*(1+(Math.random()-0.5)*0.25),
+      asteroidGeom.attributes.position.getY(i)*(1+(Math.random()-0.5)*0.25),
+      asteroidGeom.attributes.position.getZ(i)*(1+(Math.random()-0.5)*0.25)
+    );
+  }
+  asteroidGeom.computeVertexNormals();
+  const asteroidMat = new THREE.MeshStandardMaterial({ color:0x8b6b3a, roughness:0.9, metalness:0.1 });
+  const asteroid = new THREE.Mesh(asteroidGeom, asteroidMat);
+  scene.add(asteroid);
+
+  const asteroidRadius_km = asteroidDiameter_m/2000;
+  const asteroidRadius_units = Math.max(0.4, asteroidRadius_km / unitsToKm);
+  asteroid.scale.setScalar(asteroidRadius_units);
+
+  // === Path ===
+  function lonLatToXYZ(lonDeg, latDeg, radiusUnits) {
+    const lon = THREE.MathUtils.degToRad(lonDeg);
+    const lat = THREE.MathUtils.degToRad(latDeg);
+    return new THREE.Vector3(
+      radiusUnits * Math.cos(lat) * Math.cos(lon),
+      radiusUnits * Math.sin(lat),
+      radiusUnits * Math.cos(lat) * Math.sin(lon)
+    );
+  }
+
+  const impactPoint = lonLatToXYZ(impactLongitude_deg, impactLatitude_deg, earthRadiusUnits + 0.01);
+  const startDistance_km = 149597870.7 * 0.005;
+  const startDistance_units = startDistance_km / unitsToKm;
+  const impactDir = impactPoint.clone().normalize();
+  const startPoint = impactDir.clone().multiplyScalar(startDistance_units);
+  const midPoint = impactDir.clone().multiplyScalar(startDistance_units * 0.45);
+  midPoint.y += startDistance_units * 0.05;
+
+  const pathPoints = [];
+  const PATH_STEPS = 1400;
+  for (let i = 0; i <= PATH_STEPS; i++) {
+    const t = i / PATH_STEPS;
+    const p = new THREE.Vector3();
+    p.copy(startPoint).multiplyScalar((1 - t) * (1 - t))
+     .add(midPoint.clone().multiplyScalar(2 * (1 - t) * t))
+     .add(impactPoint.clone().multiplyScalar(t * t));
+    pathPoints.push(p);
+  }
+
+  const pathGeom = new THREE.BufferGeometry().setFromPoints(pathPoints);
+  const pathMat = new THREE.LineBasicMaterial({ color: 0xffaa44, opacity: 0.6, transparent: true });
+  const pathLine = new THREE.Line(pathGeom, pathMat);
+  scene.add(pathLine);
+
+  // === UI Logic ===
+  const progressInput = document.getElementById('progress');
+  const countdownEl = document.getElementById('countdown');
+  const autoBtn = document.getElementById('autoBtn');
+  const infoEl = document.getElementById('impactInfo');
+  infoEl.innerText = `Impact date: ${impactDate.toUTCString()}. Angle: ${approachAngle_deg}°. Speed: ${entrySpeed_kms} km/s.`;
+
+  let progress = 0, autoRunning = false, baselineRemainingMs = null;
+
+  function setProgress(val) {
+    progress = THREE.MathUtils.clamp(val, 0, 1);
+    const idx = Math.floor(progress * (pathPoints.length - 1));
+    asteroid.position.copy(pathPoints[idx]);
+    asteroid.lookAt(earth.position);
+    progressInput.value = progress;
+    if (progress >= 0.9995) {
+      countdownEl.innerText = "IMPACT!";
+      countdownEl.classList.add('danger');
+    } else {
+      countdownEl.classList.remove('danger');
+    }
+  }
+
+  progressInput.addEventListener('input', e => {
+    setProgress(parseFloat(e.target.value));
+    autoRunning = false;
+    autoBtn.innerText = 'Auto';
+  });
+
+  autoBtn.addEventListener('click', () => {
+    autoRunning = !autoRunning;
+    autoBtn.innerText = autoRunning ? 'Stop' : 'Auto';
+    baselineRemainingMs = autoRunning ? impactDate - new Date() : null;
+  });
+
+  setInterval(() => {
+    const now = new Date();
+    const remMs = impactDate - now;
+    if (remMs <= 0) {
+      countdownEl.innerText = "IMPACT!";
+      setProgress(1);
+      return;
+    }
+    const s = Math.floor(remMs / 1000) % 60,
+          m = Math.floor(remMs / 60000) % 60,
+          h = Math.floor(remMs / 3600000) % 24,
+          d = Math.floor(remMs / 86400000);
+    countdownEl.innerText = `${d}d ${h}h ${m}m ${s}s`;
+    if (autoRunning && baselineRemainingMs !== null) {
+      const nowRem = impactDate - new Date();
+      const p = THREE.MathUtils.clamp(1 - (nowRem / baselineRemainingMs), 0, 1);
+      setProgress(p);
+    }
+  }, 1000);
+
+  // === Animation ===
+  function animate() {
+    requestAnimationFrame(animate);
+    earth.rotation.y += 0.0018;
+    clouds.rotation.y += 0.0022;
+    pathLine.rotation.y += 0.0002;
+    asteroid.rotation.x += 0.01;
+    asteroid.rotation.y += 0.013;
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+  });
+
+  setProgress(0);
+  </script>
+</body>
+</html>

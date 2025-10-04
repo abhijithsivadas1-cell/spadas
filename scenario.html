@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Asteroid 2024 YR4 — Impact Simulation, Scenario & Tools</title>
+
+  <!-- Main page styles (keeps previous look) -->
+  <style>
+    html,body {
+      margin:0;
+      padding:0;
+      background:#000;
+      color:#fff;
+      font-family:system-ui, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    section { width:100%; box-sizing:border-box; }
+    #impactorSection { height:100vh; position:relative; overflow:hidden; }
+    #container { position:relative; width:100%; height:100%; }
+    canvas{ display:block; }
+    .ui {
+      position:absolute; left:12px; top:12px;
+      background:rgba(0,0,0,0.6); padding:12px; border-radius:8px;
+      min-width:300px; line-height:1.4;
+      box-shadow:0 6px 18px rgba(0,0,0,0.6);
+      backdrop-filter:blur(4px);
+    }
+    .ui h2{ margin:0 0 8px; font-size:16px; }
+    .big{ font-family:monospace; font-size:18px; font-weight:600; }
+    .muted{ opacity:0.85; font-size:13px; }
+    #controls{ margin-top:10px; display:flex; gap:8px; align-items:center; }
+    input[type="range"]{ width:180px; }
+    #legend{
+      position:absolute; left:12px; bottom:12px;
+      background:rgba(0,0,0,0.45); padding:8px;
+      border-radius:8px; font-size:13px;
+    }
+    .danger{ color:#ff6b6b; }
+    #scenarioSection {
+      background:#f4f4f9;
+      color:#333;
+      font-family:'Arial',sans-serif;
+      line-height:1.6;
+      padding:40px;
+      max-width:800px;
+      margin:0 auto;
+      box-shadow:0 0 10px rgba(0,0,0,0.1);
+      border:1px solid #ddd;
+    }
+    #scenarioSection h1 {
+      color:#cc0000;
+      border-bottom:2px solid #cc0000;
+      padding-bottom:10px;
+      font-size:1.8em;
+    }
+    #scenarioSection h3 {
+      color:#0056b3;
+      margin-top:25px;
+      border-left:5px solid #0056b3;
+      padding-left:10px;
+    }
+    ul { list-style-type:disc; margin-left:20px; padding-left:0; }
+    .key-fact { font-weight:bold; }
+    #downloadSection {
+      text-align:center;
+      padding:40px 0;
+      background:#111;
+    }
+    #downloadSection button {
+      background:#0056b3;
+      color:#fff;
+      border:none;
+      padding:15px 25px;
+      font-size:16px;
+      border-radius:8px;
+      cursor:pointer;
+      transition:background 0.3s ease;
+    }
+    #downloadSection button:hover { background:#0078ff; }
+
+    /* --- Styles merged from impactorpy.html (kept intact) --- */
+    body.impactorpy { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+    .impactorpy .container { max-width:1200px; margin:0 auto; }
+    .impactorpy h1 { margin: 0 0 12px 0; font-size:24px; color: #111; }
+    .impactorpy .grid { display:grid; grid-template-columns: 320px 1fr; gap:16px; align-items:start; }
+    .impactorpy .card { background:white; padding:14px; border-radius:10px; box-shadow: 0 6px 18px rgba(12,20,30,0.06); color:#111; }
+    .impactorpy label { display:block; font-size:13px; margin-top:10px; color:#333; }
+    .impactorpy input[type="number"] { width:100%; padding:8px 10px; font-size:14px; margin-top:6px; box-sizing:border-box; border-radius:6px; border:1px solid #d6dbe1; }
+    .impactorpy button { margin-top:12px; padding:10px 12px; border-radius:8px; border:0; background:#0b79ff; color:white; font-weight:600; cursor:pointer; }
+    .impactorpy button.secondary { background:#6b7280; }
+    .impactorpy .results { margin-top:12px; font-size:14px; line-height:1.5; color:#111; }
+    .impactorpy .plots { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .impactorpy #craterPlot { height:520px; background:white; border-radius:8px; padding:6px; }
+    .impactorpy #smallPlots { display:flex; flex-direction:column; gap:12px; height:520px; }
+    .impactorpy .smallPlot { height:165px; background:white; border-radius:8px; padding:8px; }
+    .impactorpy pre { background:#f3f4f6; padding:10px; border-radius:6px; overflow:auto; max-height:240px; color:#111; }
+    .impactorpy .top-actions { display:flex; gap:8px; margin-bottom:12px; }
+
+    /* --- Styles merged from deflection.html (kept intact) --- */
+    .deflectionPage body{ } /* placeholder, kept none to avoid overriding page */
+    .deflectionPage .container{max-width:900px;margin:18px auto;background:white;padding:28px;border-radius:12px;box-shadow:0 6px 24px rgba(15,23,42,0.06); color:#0b1220}
+    .deflectionPage h1{font-size:28px;margin-bottom:6px;color:#0b1220}
+    .deflectionPage h2{font-size:18px;margin-top:20px;color:#0b1220}
+    .deflectionPage pre{background:#f3f4f6;padding:12px;border-radius:8px;overflow:auto;color:#0b1220}
+    .deflectionPage table{border-collapse:collapse;margin-top:12px;width:100%}
+    .deflectionPage td,.deflectionPage th{padding:8px;border:1px solid #e6e9ef;text-align:left}
+    .deflectionPage .note{font-size:14px;color:#374151;margin-top:8px}
+    .deflectionPage .footer{margin-top:18px;font-size:13px;color:#6b7280}
+
+    /* --- Styles merged from deflectionpy.html (kept intact) --- */
+    .deflectionpyPage body{ } /* placeholder */
+    .deflectionpyPage h1{font-size:22px;margin-bottom:10px;color:#111}
+    .deflectionpyPage .container{display:flex;gap:20px;align-items:flex-start}
+    .deflectionpyPage .card{background:#fff;padding:16px;border-radius:10px;box-shadow:0 6px 18px rgba(20,30,60,.08); color:#111}
+    .deflectionpyPage label{display:block;margin-top:10px;font-weight:600}
+    .deflectionpyPage input{width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-top:4px}
+    .deflectionpyPage button{margin-top:12px;padding:10px 14px;border:0;border-radius:8px;background:#0b61ff;color:#fff;font-weight:700;cursor:pointer}
+    .deflectionpyPage pre{background:#0f1724;color:#e6eef8;padding:10px;border-radius:8px;overflow:auto;margin-top:10px;white-space:pre-line}
+    .deflectionpyPage #viz{background:#000;border-radius:10px;display:block}
+    .deflectionpyPage .legend{margin-top:8px;font-size:13px;color:#333;text-align:center}
+  </style>
+
+  <!-- External scripts required by merged pages -->
+  <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+
+  <!-- === IMPACTOR SIMULATION (original) === -->
+  <section id="impactorSection">
+    <div id="container"></div>
+    <div class="ui" id="countdownBox">
+      <h2>Countdown to impact</h2>
+      <div id="countdown" class="big">—</div>
+      <div class="muted" id="impactInfo"></div>
+      <div id="controls">
+        <label class="muted">Progress</label>
+        <input id="progress" type="range" min="0" max="1" step="0.0005" value="0">
+        <button id="autoBtn">Auto</button>
+      </div>
+    </div>
+    <div id="legend">
+      Drag slider or enable "Auto" to progress asteroid toward impact. When asteroid reaches Earth, simulation shows impact.
+    </div>
+  </section>
+
+  <!-- === FULL SCENARIO CONTENT (unchanged full text) === -->
+  <section id="scenarioSection">
+    <h1>Asteroid 2024 YR4: Near-Earth Object Scenario</h1>
+    
+    <p>(Astronomers have modeled a sobering scenario in which asteroid <b>2024 YR4</b> — a near-Earth object currently being tracked by observatories worldwide — collides with our planet on <b>22 December 2032</b>. While this is a hypothetical projection based on orbital mechanics rather than a confirmed prediction, the exercise highlights the razor-thin margins that separate harmless flybys from catastrophic encounters.)</p>
+    
+    <p>Asteroid 2024 YR4 is a near-Earth object discovered on December 27, 2024, by the ATLAS–CHL survey in Chile and is classified as an <b>Apollo-type asteroid</b>, meaning it crosses Earth’s orbit. It measures approximately 53 to 67 meters in diameter, comparable to a 10-story building, and has attracted attention due to its potential impact risks. Initial calculations raised concerns about a possible Earth impact in December 2032, but updated observations have effectively ruled out that threat, shifting focus to a potential lunar impact with an estimated probability of around 4.3%. Its orbit is influenced by subtle forces like the <b>Yarkovsky effect</b>, which can gradually alter its trajectory over time, making continuous monitoring critical. Scientists are actively exploring mitigation strategies, including the theoretical use of nuclear devices to deflect or disrupt it if needed, highlighting the importance of international coordination and preparedness. While it no longer poses an immediate danger to Earth, 2024 YR4 remains under close observation due to its potential to affect the Moon and nearby satellite infrastructure.</p>
+
+    <h3>Key Facts:</h3>
+    <ul>
+      <li><span class="key-fact">Type:</span> Apollo-class near-Earth asteroid</li>
+      <li><span class="key-fact">Diameter:</span> 53–67 meters</li>
+      <li><span class="key-fact">Discovery:</span> December 27, 2024, ATLAS–CHL, Río Hurtado, Chile</li>
+      <li><span class="key-fact">Orbit:</span> Earth-crossing, perihelion in 2028 and 2032</li>
+      <li><span class="key-fact">Earth Impact Probability (2032):</span> 0.001%</li>
+      <li><span class="key-fact">Moon Impact Probability (2032):</span> 4%</li>
+    </ul>
+
+    <h3>From Keyhole to Collision Path</h3>
+    <p>The path to impact begins years earlier, when the asteroid drifts slightly under the influence of the Yarkovsky effect — a subtle but steady push caused by uneven heat radiation from its surface. That drift, imperceptible over days but powerful across decades, nudges the object into a <b>gravitational keyhole</b> during a close pass of Earth. Passing through this “cosmic trapdoor” bends the orbit just enough that, on its next swing around the Sun, Earth and the asteroid arrive at the same place at the same time.</p>
+    <p>A <b>gravitational keyhole</b> is a very narrow region of space near Earth that an asteroid might pass through during a close approach. If it flies through this “cosmic trapdoor,” Earth’s gravity slightly bends its trajectory so that, on a future orbit, the asteroid and Earth arrive at the same place at the same time. The keyhole itself is usually only a few hundred meters across on the encounter plane, but passing through it sets up a precise resonant return — after a certain number of years and orbital revolutions, the asteroid’s new orbit intersects Earth’s position, creating an impact risk.</p>
+    <p>The <b>Yarkovsky effect</b> plays a subtle but critical role. This effect arises because sunlight heats one side of a rotating asteroid, and when that heat is re-radiated as infrared energy, it imparts a tiny thrust. Over years or decades, this can gradually shift the asteroid’s orbit by kilometers. If that small drift nudges the asteroid’s path into a keyhole during an earlier encounter, Earth’s gravity can then redirect it into a future collision course. In this way, a barely noticeable thermal push, combined with the precise geometry of gravitational deflection, can turn a harmless near-Earth flyby into an eventual impact scenario.</p>
+
+    <h3>The Impact Location</h3>
+    <p>Simulations of this trajectory suggest that the asteroid would intersect Earth’s orbit over the <b>central Pacific Ocean</b>, striking near the Equator at approximately 173° East longitude. This point lies close to the remote island nation of <b>Kiribati</b>, within one of the most isolated stretches of ocean on the planet.</p>
+
+    <h3>Speed and Energy</h3>
+    <p>Approaching Earth at a shallow angle (θ = 30° relative to Earth’s orbital motion), the asteroid would hit the atmosphere at an estimated entry velocity of <b>19–20 km/s</b> — more than 50 times the speed of sound. With a diameter on the order of 150 meters, the impactor would carry an energy release equivalent to <b>thousands of megatons of TNT</b>, far exceeding the most powerful nuclear device ever detonated.</p>
+    <p>Although the Pacific strike location spares major continental landmasses from direct devastation, the consequences would still be global. The impact would excavate a vast crater in the ocean, generate <b>massive tsunamis</b> across the Pacific basin, and inject huge volumes of water vapor and aerosols into the stratosphere.</p>
+
+    <h3>Human Consequences</h3>
+    <p>For island nations such as <b>Kiribati, Tuvalu, Fiji, and the Marshall Islands</b>, the first hours after impact would bring walls of water tens of meters high racing across their shores. Coastal regions of Asia, Oceania, and the Americas could see tsunami waves hours later. The broader climate system would also feel the effects: particulate matter injected high into the atmosphere could lead to <b>temporary global cooling</b>, altered rainfall patterns, and agricultural disruptions.</p>
+
+    <h3>Lessons from the Exercise</h3>
+    <p>Planetary scientists stress that this scenario is <b>not a prediction</b> but a <b>modeling exercise</b> meant to demonstrate how delicate orbital dynamics can transform a routine flyby into a global hazard. It underscores the importance of <b>early detection and continuous tracking</b> of near-Earth asteroids. Small orbital nudges, applied decades in advance, could prevent such collisions entirely.</p>
+    <p>As one researcher put it: “A few centimeters per second change in speed, applied years before a close approach, can be the difference between a spectacular sky show and a global disaster.”</p>
+  </section>
+
+  <!-- === VIEW PDF BUTTON (opens in new tab) === -->
+  <section id="downloadSection">
+    <a href="asteroid_impact_math.pdf" target="_blank" rel="noopener noreferrer">
+      <button>📘 Impactor Mathematical Details</button>
+    </a>
+  </section>
+
+  <!-- === IMPACTORPY SECTION (embedded from impactorpy.html) === -->
+  <section id="impactorPySection" class="impactorpy" style="background:#f7f9fb;padding:24px;">
+    <div class="container">
+      <h1>Impactor 2025 <code>Impact Result</code></h1>
+      <div class="top-actions">
+        <button id="computeBtn">Compute & Draw</button>
+        <button id="downloadImgBtn" class="secondary">Download Crater PNG</button>
+        <button id="printBtn" class="secondary">Print Results</button>
+      </div>
+
+      <div class="grid" style="margin-top:12px">
+        <div class="card">
+          <h3>Inputs</h3>
+          <div>
+            <label>Asteroid radius (meters)
+              <input id="radius" type="number" step="any" value="10" />
+            </label>
+
+            <label>Asteroid velocity (km/s)
+              <input id="velocity_kms" type="number" step="any" value="20" />
+            </label>
+
+            <label>Asteroid density (kg/m³)
+              <input id="density" type="number" step="any" value="3000" />
+            </label>
+
+            <label>Impact angle (degrees)
+              <input id="impact_angle_deg" type="number" step="any" value="45" />
+            </label>
+
+            <label>Target (impact place) density (kg/m³)
+              <input id="target_density" type="number" step="any" value="2500" />
+            </label>
+
+            <button id="resetBtn" class="secondary">Reset to example values</button>
+
+            <div class="results" id="textResults" aria-live="polite">
+              <!-- textual results appear here -->
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card" style="padding:10px;">
+            <div class="plots">
+              <div id="craterPlot"></div>
+
+              <div id="smallPlots" style="min-height:520px;">
+                <div id="plotKE" class="smallPlot"></div>
+                <div id="plotMomentum" class="smallPlot"></div>
+                <div id="plotHiroHeat" class="smallPlot"></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="height:12px"></div>
+
+          <div class="card">
+            <h3>Raw output (printable)</h3>
+            <pre id="rawOutput">No calculation yet. Click "Compute & Draw".</pre>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- === DEFLECTION (static content) embedded from deflection.html === -->
+  <section id="deflectionSection" class="deflectionPage" style="padding:20px;">
+    <div class="container">
+      <h1>Deflection Plan</h1>
+      <p><strong>Gravity Tractor for Asteroid 2025 (formerly 2024 YR4)</strong></p>
+      <p>A gravity tractor spacecraft applies continuous gravitational pull to slowly alter the asteroid's trajectory over time, preventing keyhole passage and potential future collision.</p>
+
+      <h2>Mathematical Analysis</h2>
+
+      <h3>Asteroid heliocentric speed (vis-viva)</h3>
+      <pre>v = sqrt( μ (2/r – 1/a) )
+v = sqrt(1.327e11 km³/s² × (2/1 AU – 1/1.2 AU))
+v = 32.171 km/s
+</pre>
+
+      <h3>Geocentric approach speed</h3>
+      <pre>v∞ = sqrt(v² + v⊕² – 2 v v⊕ cos θ)
+v∞ = sqrt(32.171² + 29.785² – 2·32.171·29.785·cos 30°)
+v∞ = 16.200 km/s
+</pre>
+
+      <h3>Atmospheric entry speed</h3>
+      <pre>v_entry = sqrt(v∞² + v_esc²)
+v_entry = sqrt(16.200² + 11.186²)
+v_entry ≈ 19.687 km/s
+</pre>
+
+      <h3>Impact coordinates</h3>
+      <pre>Incoming vector → (-0.9933, 0.0469, 0)
+Surface intercept = R⊕ × vector = (-6326 km, 757 km, 0)
+Latitude = 0.0°, Longitude = 173.18°E
+</pre>
+
+      <h3>Gravity tractor delta-v and miss distance</h3>
+      <pre>Δv = (G M_tr / d²) × t / m_asteroid
+Where G = 6.674×10⁻¹¹ m³/kg·s², M_tr = mass of tractor, d = separation, t = interaction time, m_asteroid = asteroid mass
+</pre>
+
+      <h2>Assumptions</h2>
+      <table>
+        <tr><th>Parameter</th><th>Value</th></tr>
+        <tr><td>m_asteroid</td><td>1.5 × 10⁹ kg (diameter 60 m, density 2.0 g/cm³)</td></tr>
+        <tr><td>d (separation)</td><td>500 m</td></tr>
+        <tr><td>t (interaction time)</td><td>5 years</td></tr>
+        <tr><td>M_tr (chosen tractor mass)</td><td>10,000 kg</td></tr>
+      </table>
+
+      <h2>Result & Conclusion</h2>
+      <p class="note">Choose M_tr = 10,000 kg, apply continuous thrust to maintain 500 m distance. Resulting Δv sufficient to shift orbit by 200 km, safely avoiding keyhole.</p>
+
+      <h3>Miss Distance</h3>
+      <pre>By applying Δv ~ 0.2 cm/s over 5 years, asteroid deflects by Δs ~ 200 km, preventing Earth or lunar impact.
+
+This plan demonstrates that small, sustained gravitational interactions can mitigate asteroid threats decades in advance.
+</pre>
+
+      <div class="footer">Prepared: Gravity Tractor deflection summary — formatted for web presentation.</div>
+    </div>
+  </section>
+
+  <!-- === DEFLECTIONPY (interactive gravity tractor sim) === -->
+  <section id="deflectionPySection" class="deflectionpyPage" style="padding:20px;">
+    <h1>Gravity Tractor Deflection Simulation</h1>
+    <p>
+      Enter asteroid details and simulate how a gravity tractor alters its trajectory.<br>
+      The <strong>dotted white</strong> line shows the asteroid’s original impact path, and the 
+      <strong>solid green</strong> line shows the deflected path safely bypassing Earth.
+    </p>
+
+    <div class="container" style="margin-top:12px">
+      <div class="card" style="width:350px">
+        <label>Asteroid mass (kg)</label>
+        <input id="m_asteroid" type="number" value="1e9">
+
+        <label>Remaining time to keyhole (years)</label>
+        <input id="T_years" type="number" value="5">
+
+        <label>Distance to keyhole (km)</label>
+        <input id="delta_x_km" type="number" value="100">
+
+        <button id="runBtn">Run Simulation</button>
+
+        <pre id="results">No run yet.</pre>
+      </div>
+
+      <div class="card" style="flex:1;text-align:center">
+        <canvas id="viz" width="800" height="500"></canvas>
+        <div class="legend" style="margin-top:12px;">
+          <span style="color:#fff">⬤</span> Earth | 
+          <span style="border-bottom:2px dotted #fff">&nbsp;&nbsp;&nbsp;&nbsp;</span> Undeflected path | 
+          <span style="border-bottom:2px solid #0f0">&nbsp;&nbsp;&nbsp;&nbsp;</span> Deflected path
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- === SCRIPTS: main Three.js simulation and merged page scripts === -->
+  <script>
+  /* =========================
+     Three.js Impact Simulation
+     (original impactor.js code preserved; minor scoping only)
+     ========================= */
+  const impactDate = new Date(Date.UTC(2032, 11, 22, 0, 0, 0));
+  const asteroidDiameter_m = 150;
+  const entrySpeed_kms = 19.5;
+  const approachAngle_deg = 30;
+  const impactLongitude_deg = 173;
+  const impactLatitude_deg = 0;
+  const earthRadiusUnits = 20;
+  const earthRadius_km = 6371;
+  const unitsToKm = earthRadius_km / earthRadiusUnits;
+
+  const containerEl = document.getElementById('container');
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, containerEl.clientWidth/containerEl.clientHeight, 0.1, 10000);
+  camera.position.set(0, 0, 120);
+  camera.lookAt(0,0,0);
+
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(containerEl.clientWidth, containerEl.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  containerEl.appendChild(renderer.domElement);
+
+  const sun = new THREE.DirectionalLight(0xffffff, 2);
+  sun.position.set(150, 100, 200);
+  scene.add(sun);
+  scene.add(new THREE.AmbientLight(0x555555));
+
+  const loader = new THREE.TextureLoader();
+  const earthTexture = loader.load("https://threejs.org/examples/textures/land_ocean_ice_cloud_2048.jpg");
+  const earthBump = loader.load("https://threejs.org/examples/textures/earthbump1k.jpg");
+  const earthSpec = loader.load("https://threejs.org/examples/textures/earthspec1k.jpg");
+  const cloudsTexture = loader.load("https://threejs.org/examples/textures/earthcloudmaptrans.jpg");
+  const starsTexture = loader.load("https://threejs.org/examples/textures/galaxy_starfield.png");
+
+  const earth = new THREE.Mesh(
+    new THREE.SphereGeometry(earthRadiusUnits, 128, 128),
+    new THREE.MeshPhongMaterial({
+      map: earthTexture,
+      bumpMap: earthBump,
+      bumpScale: 0.4,
+      specularMap: earthSpec,
+      specular: new THREE.Color("grey"),
+      shininess: 10
+    })
+  );
+  scene.add(earth);
+
+  const clouds = new THREE.Mesh(
+    new THREE.SphereGeometry(earthRadiusUnits * 1.01, 64, 64),
+    new THREE.MeshPhongMaterial({
+      map: cloudsTexture,
+      transparent: true,
+      opacity: 0.4,
+      depthWrite: false
+    })
+  );
+  scene.add(clouds);
+
+  const stars = new THREE.Mesh(
+    new THREE.SphereGeometry(2000, 64, 64),
+    new THREE.MeshBasicMaterial({ map: starsTexture, side: THREE.BackSide })
+  );
+  scene.add(stars);
+
+  const asteroidGeom = new THREE.IcosahedronGeometry(1.0, 1);
+  for (let i=0;i<asteroidGeom.attributes.position.count;i++){
+    asteroidGeom.attributes.position.setXYZ(i,
+      asteroidGeom.attributes.position.getX(i)*(1+(Math.random()-0.5)*0.25),
+      asteroidGeom.attributes.position.getY(i)*(1+(Math.random()-0.5)*0.25),
+      asteroidGeom.attributes.position.getZ(i)*(1+(Math.random()-0.5)*0.25)
+    );
+  }
+  asteroidGeom.computeVertexNormals();
+  const asteroidMat = new THREE.MeshStandardMaterial({ color:0x8b6b3a, roughness:0.9, metalness:0.1 });
+  const asteroid = new THREE.Mesh(asteroidGeom, asteroidMat);
+  scene.add(asteroid);
+
+  const asteroidRadius_km = asteroidDiameter_m/2000;
+  const asteroidRadius_units = Math.max(0.4, asteroidRadius_km / unitsToKm);
+  asteroid.scale.setScalar(asteroidRadius_units);
+
+  function lonLatToXYZ(lonDeg, latDeg, radiusUnits) {
+    const lon = THREE.MathUtils.degToRad(lonDeg);
+    const lat = THREE.MathUtils.degToRad(latDeg);
+    return new THREE.Vector3(
+      radiusUnits * Math.cos(lat) * Math.cos(lon),
+      radiusUnits * Math.sin(lat),
+      radiusUnits * Math.cos(lat) * Math.sin(lon)
+    );
+  }
+
+  const impactPoint = lonLatToXYZ(impactLongitude_deg, impactLatitude_deg, earthRadiusUnits + 0.01);
+  const startDistance_km = 149597870.7 * 0.005;
+  const startDistance_units = startDistance_km / unitsToKm;
+  const impactDir = impactPoint.clone().normalize();
+  const startPoint = impactDir.clone().multiplyScalar(startDistance_units);
+  const midPoint = impactDir.clone().multiplyScalar(startDistance_units * 0.45);
+  midPoint.y += startDistance_units * 0.05;
+
+  const pathPoints = [];
+  const PATH_STEPS = 1400;
+  for (let i = 0; i <= PATH_STEPS; i++) {
+    const t = i / PATH_STEPS;
+    const p = new THREE.Vector3();
+    p.copy(startPoint).multiplyScalar((1 - t) * (1 - t))
+     .add(midPoint.clone().multiplyScalar(2 * (1 - t) * t))
+     .add(impactPoint.clone().multiplyScalar(t * t));
+    pathPoints.push(p);
+  }
+
+  const pathGeom = new THREE.BufferGeometry().setFromPoints(pathPoints);
+  const pathMat = new THREE.LineBasicMaterial({ color: 0xffaa44, opacity: 0.6, transparent: true });
+  const pathLine = new THREE.Line(pathGeom, pathMat);
+  scene.add(pathLine);
+
+  // UI elements
+  const progressInput = document.getElementById('progress');
+  const countdownEl = document.getElementById('countdown');
+  const autoBtn = document.getElementById('autoBtn');
+  const infoEl = document.getElementById('impactInfo');
+  infoEl.innerText = `Impact date: ${impactDate.toUTCString()}. Angle: ${approachAngle_deg}°. Speed: ${entrySpeed_kms} km/s.`;
+
+  let progress = 0, autoRunning = false, baselineRemainingMs = null;
+  function setProgress(val){
+    progress = THREE.MathUtils.clamp(val,0,1);
+    const idx = Math.floor(progress * (pathPoints.length - 1));
+    asteroid.position.copy(pathPoints[idx]);
+    asteroid.lookAt(earth.position);
+    progressInput.value = progress;
+    if(progress>=0.9995){countdownEl.innerText="IMPACT!";countdownEl.classList.add('danger');}
+    else{countdownEl.classList.remove('danger');}
+  }
+
+  progressInput.addEventListener('input',e=>{
+    setProgress(parseFloat(e.target.value));
+    autoRunning=false;autoBtn.innerText='Auto';
+  });
+
+  autoBtn.addEventListener('click',()=>{
+    autoRunning=!autoRunning;
+    autoBtn.innerText=autoRunning?'Stop':'Auto';
+    baselineRemainingMs=autoRunning?impactDate-new Date():null;
+  });
+
+  setInterval(()=>{
+    const now=new Date();
+    const remMs=impactDate-now;
+    if(remMs<=0){countdownEl.innerText="IMPACT!";setProgress(1);return;}
+    const s=Math.floor(remMs/1000)%60,
+          m=Math.floor(remMs/60000)%60,
+          h=Math.floor(remMs/3600000)%24,
+          d=Math.floor(remMs/86400000);
+    countdownEl.innerText=`${d}d ${h}h ${m}m ${s}s`;
+    if(autoRunning && baselineRemainingMs!==null){
+      const nowRem=impactDate-new Date();
+      const p=THREE.MathUtils.clamp(1-(nowRem/baselineRemainingMs),0,1);
+      setProgress(p);
+    }
+  },1000);
+
+  function animate(){
+    requestAnimationFrame(animate);
+    earth.rotation.y+=0.0018;
+    clouds.rotation.y+=0.0022;
+    pathLine.rotation.y+=0.0002;
+    asteroid.rotation.x+=0.01;
+    asteroid.rotation.y+=0.013;
+    renderer.render(scene,camera);
+  }
+  animate();
+
+  window.addEventListener('resize',()=>{
+    camera.aspect=containerEl.clientWidth/containerEl.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(containerEl.clientWidth,containerEl.clientHeight);
+  });
+
+  setProgress(0);
+
+  /* =========================
+     ImpactorPy (Plotly) logic (preserved)
+     ========================= */
+  // Utility functions
+  function log10(x) { return Math.log(x) / Math.LN10; }
+  function fmt(n, opts={dec:2, sci:false}) {
+    if (n === null || n === undefined || !isFinite(n)) return "N/A";
+    if (opts.sci) return n.toExponential(opts.dec);
+    return Number(n).toFixed(opts.dec);
+  }
+
+  // Constants (as in the Python script)
+  const J_TO_MT = 4.184e15;
+  const HIROSHIMA_J = 15e3 * 4.184e9; // same as python
+
+  async function computeAndRender() {
+    // Get inputs
+    const radius = parseFloat(document.getElementById('radius').value) || 0;
+    const velocity_kms = parseFloat(document.getElementById('velocity_kms').value) || 0;
+    const density = parseFloat(document.getElementById('density').value) || 0;
+    const impact_angle_deg = parseFloat(document.getElementById('impact_angle_deg').value) || 0;
+    const target_density = parseFloat(document.getElementById('target_density').value) || 0;
+
+    // Derived
+    const velocity = velocity_kms * 1000; // m/s
+
+    // Mass & volume
+    const volume = (4/3) * Math.PI * Math.pow(radius,3);
+    const mass = density * volume;
+
+    // Kinetic Energy
+    const KE = 0.5 * mass * Math.pow(velocity,2);
+    const KE_MT = KE / J_TO_MT;
+    const KE_kilotons = KE / 4.184e12;
+
+    // Momentum
+    const momentum = mass * velocity;
+
+    // Hiroshima eq
+    const hiros_eq = KE / HIROSHIMA_J;
+
+    // Crater (Model B)
+    const kappa = 1.3;
+    const f_final = 1.25;
+    const crater_diameter = kappa * Math.pow(mass, 1/3) * Math.pow(velocity,0.44) * Math.pow(density/target_density, 1/3) * f_final;
+    const crater_radius = crater_diameter / 2;
+
+    // Richter approx
+    const richter = (2/3) * log10(Math.max(KE_kilotons, 1e-6)) - 3.2;
+
+    // Mass loss (simple ablation model)
+    const A = Math.PI * Math.pow(radius,2);
+    const alpha = 1e-6;
+    const loss_factor = 1 - Math.exp(-alpha * A * Math.pow(velocity,2) / mass);
+    const mass_after = mass * (1 - loss_factor);
+    const mass_lost = mass - mass_after;
+
+    // Heat produced
+    const heat = KE * 0.6;
+
+    // Prepare textual output
+    const textLines = [
+      '--- Impact Results ---',
+      `Mass: ${fmt(mass, {dec:2, sci:true})} kg`,
+      `Kinetic Energy: ${fmt(KE, {dec:2, sci:true})} J (${fmt(KE_MT, {dec:2})} MT)`,
+      `Momentum: ${fmt(momentum, {dec:2, sci:true})} kg·m/s`,
+      `Hiroshima equivalent: ${fmt(hiros_eq, {dec:2})}×`,
+      `Crater diameter (Model B only): ${fmt(crater_diameter, {dec:1})} m`,
+      `Approx. Richter magnitude: ${fmt(richter, {dec:2})}`,
+      `Mass lost to atmosphere: ${fmt(mass_lost, {dec:2, sci:true})} kg (${(loss_factor*100).toFixed(2)}%)`,
+      `Mass after atmosphere: ${fmt(mass_after, {dec:2, sci:true})} kg`,
+      `Heat produced: ${fmt(heat, {dec:2, sci:true})} J`
+    ];
+
+    document.getElementById('rawOutput').textContent = textLines.join('\n');
+    document.getElementById('textResults').innerHTML = textLines.slice(1).map(l => `<div>${l}</div>`).join('');
+
+    // Create crater surface grid (n=100 in python)
+    const n = 120; // a bit denser for smoothness
+    const xs = [];
+    for (let i=0;i<n;i++) xs.push(-crater_radius + (2*crater_radius)*(i/(n-1)));
+    const ys = xs.slice();
+    const Z = [];
+    const max_depth = crater_radius / 5;
+    for (let j=0;j<ys.length;j++){
+      const row = [];
+      for (let i=0;i<xs.length;i++){
+        const X = xs[i], Y = ys[j];
+        const R = Math.sqrt(X*X + Y*Y);
+        if (R <= crater_radius) {
+          row.push(-max_depth * (1 - Math.pow(R/crater_radius,2)));
+        } else {
+          row.push(0);
+        }
+      }
+      Z.push(row);
+    }
+
+    // Plotly 3D crater
+    const craterData = [{
+      type: 'surface',
+      x: xs,
+      y: ys,
+      z: Z,
+      showscale: false,
+      contours: { z: { show: true, usecolormap: true, highlightcolor: "#42a5f5", project:{ z: true } } },
+      cmin: Math.min(...Z.flat()),
+      cmax: 0
+    }];
+
+    const craterLayout = {
+      title: `3D Crater (Model B) — Diameter: ${crater_diameter.toFixed(1)} m`,
+      scene: {
+        xaxis: { title:'X (m)' },
+        yaxis: { title:'Y (m)' },
+        zaxis: { title:'Depth (m)' },
+        aspectratio: { x:1, y:1, z:0.35 },
+        camera: { eye: {x: 1.4, y: -1.4, z: 0.6 } }
+      },
+      margin: {l:0, r:0, t:40, b:0},
+      paper_bgcolor: 'white',
+      plot_bgcolor: 'white'
+    };
+
+    await Plotly.react('craterPlot', craterData, craterLayout, {displayModeBar: true, responsive:true});
+
+    // Kinetic energy bar (Asteroid KE in MT)
+    const keData = [{
+      x: ['Asteroid KE (MT)'],
+      y: [KE_MT],
+      type: 'bar',
+      marker: { color: '#ff5c5c' }
+    }];
+    const keLayout = { title:'Kinetic Energy Transfer', margin:{l:40,r:10,t:30,b:40}, yaxis:{title:'Megatons TNT'} };
+    Plotly.react('plotKE', keData, keLayout, {displayModeBar:false, responsive:true});
+
+    // Momentum bar
+    const momentumData = [{
+      x: ['Momentum (1e9 kg·m/s)'],
+      y: [momentum / 1e9],
+      type: 'bar',
+      marker: { color: '#ffa24d' }
+    }];
+    const momLayout = { title:'Momentum Transfer', margin:{l:40,r:10,t:30,b:40}, yaxis:{title:'1e9 kg·m/s'} };
+    Plotly.react('plotMomentum', momentumData, momLayout, {displayModeBar:false, responsive:true});
+
+    // Hiroshima & Heat
+    const hiHeatData = [{
+      x: ['Hiroshima Eq.', 'Heat (MT)'],
+      y: [hiros_eq, heat / J_TO_MT],
+      type: 'bar',
+      marker: { color: ['#a66cff', '#ffd86b'] }
+    }];
+    const hiHeatLayout = { title:'Hiroshima Equivalent & Heat Produced', margin:{l:40,r:10,t:30,b:40} };
+    Plotly.react('plotHiroHeat', hiHeatData, hiHeatLayout, {displayModeBar:false, responsive:true});
+
+    // Store last plot for download
+    window._lastPlotlyCrater = { data: craterData, layout: craterLayout };
+    // Also store numeric results for later use
+    window._lastResults = {
+      radius, velocity_kms, density, impact_angle_deg, target_density,
+      mass, KE, KE_MT, momentum, hiros_eq, crater_diameter, crater_radius, richter, mass_lost, mass_after, heat
+    };
+  }
+
+  // Button handlers for impactorPy
+  document.getElementById('computeBtn').addEventListener('click', async () => {
+    document.getElementById('computeBtn').disabled = true;
+    document.getElementById('computeBtn').innerText = 'Computing...';
+    try {
+      await computeAndRender();
+    } catch (e) {
+      alert('Error during compute: ' + e);
+      console.error(e);
+    } finally {
+      document.getElementById('computeBtn').disabled = false;
+      document.getElementById('computeBtn').innerText = 'Compute & Draw';
+    }
+  });
+
+  document.getElementById('downloadImgBtn').addEventListener('click', async () => {
+    if (!window._lastPlotlyCrater) {
+      alert('No crater plot to download. Run compute first.');
+      return;
+    }
+    try {
+      const imgData = await Plotly.toImage('craterPlot', {format:'png', width:1200, height:800});
+      const link = document.createElement('a');
+      link.href = imgData;
+      link.download = 'crater.png';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (e) {
+      alert('Failed to generate image: ' + e);
+    }
+  });
+
+  document.getElementById('printBtn').addEventListener('click', () => {
+    window.print();
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    document.getElementById('radius').value = 10;
+    document.getElementById('velocity_kms').value = 20;
+    document.getElementById('density').value = 3000;
+    document.getElementById('impact_angle_deg').value = 45;
+    document.getElementById('target_density').value = 2500;
+  });
+
+  /* =========================
+     DeflectionPy simulation logic (preserved)
+     ========================= */
+  (function(){
+    const canvas=document.getElementById('viz');
+    const ctx=canvas.getContext('2d');
+
+    function drawScene(deflectionFactor=0){
+      const W=canvas.width,H=canvas.height;
+      ctx.clearRect(0,0,W,H);
+      ctx.fillStyle='black';
+      ctx.fillRect(0,0,W,H);
+
+      // Earth in center
+      const earthX=W/2, earthY=H/2, earthR=40;
+      ctx.beginPath();
+      ctx.arc(earthX,earthY,earthR,0,Math.PI*2);
+      ctx.fillStyle='#1e88e5';
+      ctx.fill();
+
+      // Undeflected path
+      const startX=100, startY=H/2;
+      ctx.beginPath();
+      ctx.moveTo(startX,startY);
+      ctx.lineTo(earthX,earthY);
+      ctx.strokeStyle='white';
+      ctx.setLineDash([6,6]);
+      ctx.lineWidth=2;
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Deflected path
+      const ctrlX=(earthX+startX)/1.7;
+      const ctrlY=earthY - (150 + deflectionFactor*150); // curvature varies with Δv strength
+      const endX=earthX + 300;
+      const endY=earthY + (deflectionFactor>0.5 ? 200 : 100);
+
+      ctx.beginPath();
+      ctx.moveTo(startX,startY);
+      ctx.quadraticCurveTo(ctrlX,ctrlY,endX,endY);
+      ctx.strokeStyle='lime';
+      ctx.lineWidth=3;
+      ctx.stroke();
+    }
+
+    drawScene(0);
+
+    document.getElementById('runBtn').addEventListener('click',()=>{
+      const G=6.67e-17;
+      const m_asteroid=parseFloat(document.getElementById('m_asteroid').value);
+      const T_years=parseFloat(document.getElementById('T_years').value);
+      const delta_x_km=parseFloat(document.getElementById('delta_x_km').value);
+      const SECONDS_PER_YEAR=365.25*24*60*60;
+
+      const T_seconds=T_years*SECONDS_PER_YEAR;
+      const delta_v_required=delta_x_km/T_seconds;
+
+      // Parameter ranges
+      const masses=[...Array(50).keys()].map(i=>1e2*Math.pow(10,i/10));
+      const distances=[...Array(50).keys()].map(i=>Math.pow(10,-1+i/10));
+
+      let best_m_t=null, best_d=null, min_error=Infinity;
+
+      for(const m_t of masses){
+        for(const d of distances){
+          const delta_v_calc=(G*m_t*T_seconds)/(d**2);
+          const error=Math.abs(delta_v_calc-delta_v_required);
+          if(error<min_error){
+            min_error=error;
+            best_m_t=m_t;
+            best_d=d;
+          }
+        }
+      }
+
+      const achieved_dv=(G*best_m_t*T_seconds)/(best_d**2);
+      const ratio=Math.min(achieved_dv/delta_v_required,2); // cap curvature factor
+      const deflected=achieved_dv>=delta_v_required;
+
+      // Text output with proper newlines
+      const outputLines=[
+        `Required Δv: ${delta_v_required.toExponential(3)} km/s`,
+        ``,
+        `=== BEST SOLUTION FOUND ===`,
+        `Gravity tractor mass: ${best_m_t.toExponential(3)} kg (${(best_m_t/1000).toFixed(2)} tons)`,
+        `Operating distance: ${(best_d*1000).toFixed(2)} m`,
+        `Error in Δv: ${min_error.toExponential(3)} km/s`,
+        `Achieved Δv: ${achieved_dv.toExponential(3)} km/s`,
+        ``,
+        deflected
+          ? `✅ Deflection Successful – Asteroid safely bypasses Earth`
+          : `⚠️ Deflection Insufficient – Further intervention needed`
+      ];
+
+      document.getElementById('results').textContent=outputLines.join("\n");
+      drawScene(ratio); // curvature based on achieved Δv ratio
+    });
+  })();
+
+  </script>
+</body>
+</html>

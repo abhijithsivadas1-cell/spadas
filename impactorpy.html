@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Impactor 2025 impact result</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 16px; background:#f7f9fb; color:#111; }
+    .container { max-width:1200px; margin:0 auto; }
+    h1 { margin: 0 0 12px 0; font-size:24px; }
+    .grid { display:grid; grid-template-columns: 320px 1fr; gap:16px; align-items:start; }
+    .card { background:white; padding:14px; border-radius:10px; box-shadow: 0 6px 18px rgba(12,20,30,0.06); }
+    label { display:block; font-size:13px; margin-top:10px; color:#333; }
+    input[type="number"] { width:100%; padding:8px 10px; font-size:14px; margin-top:6px; box-sizing:border-box; border-radius:6px; border:1px solid #d6dbe1; }
+    button { margin-top:12px; padding:10px 12px; border-radius:8px; border:0; background:#0b79ff; color:white; font-weight:600; cursor:pointer; }
+    button.secondary { background:#6b7280; }
+    .results { margin-top:12px; font-size:14px; line-height:1.5; }
+    .plots { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    #craterPlot { height:520px; }
+    #smallPlots { display:flex; flex-direction:column; gap:12px; height:520px; }
+    .smallPlot { height:165px; background:white; border-radius:8px; padding:8px; }
+    pre { background:#f3f4f6; padding:10px; border-radius:6px; overflow:auto; max-height:240px; }
+    .top-actions { display:flex; gap:8px; margin-bottom:12px; }
+    @media print {
+      .grid, .top-actions, label, input, button { display:none !important; }
+      body { background: white; color: black; }
+      #craterPlot, .smallPlot { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Impactor 2025 <code>Impact Result</code></h1>
+    <div class="top-actions">
+      <button id="computeBtn">Compute & Draw</button>
+      <button id="downloadImgBtn" class="secondary">Download Crater PNG</button>
+      <button id="printBtn" class="secondary">Print Results</button>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Inputs</h3>
+        <div>
+          <label>Asteroid radius (meters)
+            <input id="radius" type="number" step="any" value="10" />
+          </label>
+
+          <label>Asteroid velocity (km/s)
+            <input id="velocity_kms" type="number" step="any" value="20" />
+          </label>
+
+          <label>Asteroid density (kg/m³)
+            <input id="density" type="number" step="any" value="3000" />
+          </label>
+
+          <label>Impact angle (degrees)
+            <input id="impact_angle_deg" type="number" step="any" value="45" />
+          </label>
+
+          <label>Target (impact place) density (kg/m³)
+            <input id="target_density" type="number" step="any" value="2500" />
+          </label>
+
+          <button id="resetBtn" class="secondary">Reset to example values</button>
+
+          <div class="results" id="textResults" aria-live="polite">
+            <!-- textual results appear here -->
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="padding:10px;">
+          <div class="plots">
+            <div id="craterPlot" style="background:white; border-radius:8px; padding:6px;"></div>
+
+            <div id="smallPlots" style="min-height:520px;">
+              <div id="plotKE" class="smallPlot"></div>
+              <div id="plotMomentum" class="smallPlot"></div>
+              <div id="plotHiroHeat" class="smallPlot"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div class="card">
+          <h3>Raw output (printable)</h3>
+          <pre id="rawOutput">No calculation yet. Click "Compute & Draw".</pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+  // Utility functions
+  function log10(x) { return Math.log(x) / Math.LN10; }
+  function fmt(n, opts={dec:2, sci:false}) {
+    if (n === null || n === undefined || !isFinite(n)) return "N/A";
+    if (opts.sci) return n.toExponential(opts.dec);
+    return Number(n).toFixed(opts.dec);
+  }
+
+  // Constants (as in the Python script)
+  const J_TO_MT = 4.184e15;
+  const HIROSHIMA_J = 15e3 * 4.184e9; // same as python
+
+  // Main compute & render
+  async function computeAndRender() {
+    // Get inputs
+    const radius = parseFloat(document.getElementById('radius').value) || 0;
+    const velocity_kms = parseFloat(document.getElementById('velocity_kms').value) || 0;
+    const density = parseFloat(document.getElementById('density').value) || 0;
+    const impact_angle_deg = parseFloat(document.getElementById('impact_angle_deg').value) || 0;
+    const target_density = parseFloat(document.getElementById('target_density').value) || 0;
+
+    // Derived
+    const velocity = velocity_kms * 1000; // m/s
+
+    // Mass & volume
+    const volume = (4/3) * Math.PI * Math.pow(radius,3);
+    const mass = density * volume;
+
+    // Kinetic Energy
+    const KE = 0.5 * mass * Math.pow(velocity,2);
+    const KE_MT = KE / J_TO_MT;
+    const KE_kilotons = KE / 4.184e12;
+
+    // Momentum
+    const momentum = mass * velocity;
+
+    // Hiroshima eq
+    const hiros_eq = KE / HIROSHIMA_J;
+
+    // Crater (Model B)
+    const kappa = 1.3;
+    const f_final = 1.25;
+    const crater_diameter = kappa * Math.pow(mass, 1/3) * Math.pow(velocity,0.44) * Math.pow(density/target_density, 1/3) * f_final;
+    const crater_radius = crater_diameter / 2;
+
+    // Richter approx
+    const richter = (2/3) * log10(Math.max(KE_kilotons, 1e-6)) - 3.2;
+
+    // Mass loss (simple ablation model)
+    const A = Math.PI * Math.pow(radius,2);
+    const alpha = 1e-6;
+    const loss_factor = 1 - Math.exp(-alpha * A * Math.pow(velocity,2) / mass);
+    const mass_after = mass * (1 - loss_factor);
+    const mass_lost = mass - mass_after;
+
+    // Heat produced
+    const heat = KE * 0.6;
+
+    // Prepare textual output
+    const textLines = [
+      '--- Impact Results ---',
+      `Mass: ${fmt(mass, {dec:2, sci:true})} kg`,
+      `Kinetic Energy: ${fmt(KE, {dec:2, sci:true})} J (${fmt(KE_MT, {dec:2})} MT)`,
+      `Momentum: ${fmt(momentum, {dec:2, sci:true})} kg·m/s`,
+      `Hiroshima equivalent: ${fmt(hiros_eq, {dec:2})}×`,
+      `Crater diameter (Model B only): ${fmt(crater_diameter, {dec:1})} m`,
+      `Approx. Richter magnitude: ${fmt(richter, {dec:2})}`,
+      `Mass lost to atmosphere: ${fmt(mass_lost, {dec:2, sci:true})} kg (${(loss_factor*100).toFixed(2)}%)`,
+      `Mass after atmosphere: ${fmt(mass_after, {dec:2, sci:true})} kg`,
+      `Heat produced: ${fmt(heat, {dec:2, sci:true})} J`
+    ];
+
+    document.getElementById('rawOutput').textContent = textLines.join('\n');
+    document.getElementById('textResults').innerHTML = textLines.slice(1).map(l => `<div>${l}</div>`).join('');
+
+    // Create crater surface grid (n=100 in python)
+    const n = 120; // a bit denser for smoothness
+    const xs = [];
+    for (let i=0;i<n;i++) xs.push(-crater_radius + (2*crater_radius)*(i/(n-1)));
+    const ys = xs.slice();
+    const Z = [];
+    const max_depth = crater_radius / 5;
+    for (let j=0;j<ys.length;j++){
+      const row = [];
+      for (let i=0;i<xs.length;i++){
+        const X = xs[i], Y = ys[j];
+        const R = Math.sqrt(X*X + Y*Y);
+        if (R <= crater_radius) {
+          row.push(-max_depth * (1 - Math.pow(R/crater_radius,2)));
+        } else {
+          row.push(0);
+        }
+      }
+      Z.push(row);
+    }
+
+    // Plotly 3D crater
+    const craterData = [{
+      type: 'surface',
+      x: xs,
+      y: ys,
+      z: Z,
+      showscale: false,
+      contours: { z: { show: true, usecolormap: true, highlightcolor: "#42a5f5", project:{ z: true } } },
+      cmin: Math.min(...Z.flat()),
+      cmax: 0
+    }];
+
+    const craterLayout = {
+      title: `3D Crater (Model B) — Diameter: ${crater_diameter.toFixed(1)} m`,
+      scene: {
+        xaxis: { title:'X (m)' },
+        yaxis: { title:'Y (m)' },
+        zaxis: { title:'Depth (m)' },
+        aspectratio: { x:1, y:1, z:0.35 },
+        camera: { eye: {x: 1.4, y: -1.4, z: 0.6 } }
+      },
+      margin: {l:0, r:0, t:40, b:0},
+      paper_bgcolor: 'white',
+      plot_bgcolor: 'white'
+    };
+
+    await Plotly.react('craterPlot', craterData, craterLayout, {displayModeBar: true, responsive:true});
+
+    // Kinetic energy bar (Asteroid KE in MT)
+    const keData = [{
+      x: ['Asteroid KE (MT)'],
+      y: [KE_MT],
+      type: 'bar',
+      marker: { color: '#ff5c5c' }
+    }];
+    const keLayout = { title:'Kinetic Energy Transfer', margin:{l:40,r:10,t:30,b:40}, yaxis:{title:'Megatons TNT'} };
+    Plotly.react('plotKE', keData, keLayout, {displayModeBar:false, responsive:true});
+
+    // Momentum bar
+    const momentumData = [{
+      x: ['Momentum (1e9 kg·m/s)'],
+      y: [momentum / 1e9],
+      type: 'bar',
+      marker: { color: '#ffa24d' }
+    }];
+    const momLayout = { title:'Momentum Transfer', margin:{l:40,r:10,t:30,b:40}, yaxis:{title:'1e9 kg·m/s'} };
+    Plotly.react('plotMomentum', momentumData, momLayout, {displayModeBar:false, responsive:true});
+
+    // Hiroshima & Heat
+    const hiHeatData = [{
+      x: ['Hiroshima Eq.', 'Heat (MT)'],
+      y: [hiros_eq, heat / J_TO_MT],
+      type: 'bar',
+      marker: { color: ['#a66cff', '#ffd86b'] }
+    }];
+    const hiHeatLayout = { title:'Hiroshima Equivalent & Heat Produced', margin:{l:40,r:10,t:30,b:40} };
+    Plotly.react('plotHiroHeat', hiHeatData, hiHeatLayout, {displayModeBar:false, responsive:true});
+
+    // Store last plot for download
+    window._lastPlotlyCrater = { data: craterData, layout: craterLayout };
+    // Also store numeric results for later use
+    window._lastResults = {
+      radius, velocity_kms, density, impact_angle_deg, target_density,
+      mass, KE, KE_MT, momentum, hiros_eq, crater_diameter, crater_radius, richter, mass_lost, mass_after, heat
+    };
+  }
+
+  // Button handlers
+  document.getElementById('computeBtn').addEventListener('click', async () => {
+    document.getElementById('computeBtn').disabled = true;
+    document.getElementById('computeBtn').innerText = 'Computing...';
+    try {
+      await computeAndRender();
+    } catch (e) {
+      alert('Error during compute: ' + e);
+      console.error(e);
+    } finally {
+      document.getElementById('computeBtn').disabled = false;
+      document.getElementById('computeBtn').innerText = 'Compute & Draw';
+    }
+  });
+
+  document.getElementById('downloadImgBtn').addEventListener('click', async () => {
+    if (!window._lastPlotlyCrater) {
+      alert('No crater plot to download. Run compute first.');
+      return;
+    }
+    try {
+      const imgData = await Plotly.toImage('craterPlot', {format:'png', width:1200, height:800});
+      const link = document.createElement('a');
+      link.href = imgData;
+      link.download = 'crater.png';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (e) {
+      alert('Failed to generate image: ' + e);
+    }
+  });
+
+  document.getElementById('printBtn').addEventListener('click', () => {
+    window.print();
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    document.getElementById('radius').value = 10;
+    document.getElementById('velocity_kms').value = 20;
+    document.getElementById('density').value = 3000;
+    document.getElementById('impact_angle_deg').value = 45;
+    document.getElementById('target_density').value = 2500;
+  });
+
+  // Initialize with a compute (optional)
+  // computeAndRender(); // uncomment to auto-run on page load
+</script>
+</body>
+</html>

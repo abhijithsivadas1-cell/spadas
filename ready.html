@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Asteroid Visualizer — Landing</title>
+
+  <!-- Google font -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CDN (no build step required) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    html, body { height: 100%; }
+    body { margin: 0; background: #000; color: #fff; font-family: 'Montserrat', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+
+    /* asteroid styling */
+    #asteroid {
+      width: 220px;
+      height: 220px;
+      border-radius: 9999px;
+      background: radial-gradient(circle at 30% 25%, #6b6b6b, #0b0b0b);
+      box-shadow: inset -12px -8px 30px rgba(0,0,0,0.8), 0 12px 40px rgba(0,0,0,0.6);
+      transform-origin: 50% 50%;
+      animation: spin-slow 20s linear infinite;
+    }
+    @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* CTA arrow */
+    .arrow { width: 24px; height: 24px; margin-top: 8px; display: block; animation: bounce 1.6s infinite; }
+    @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
+
+    /* big spacing for NASA look */
+    .title { letter-spacing: 0.45em; text-transform: uppercase; font-weight: 800; }
+    .subtitle { letter-spacing: 0.25em; text-transform: uppercase; font-weight: 800; margin-top: 0.4rem; }
+
+    /* accessibility */
+    @media (prefers-reduced-motion: reduce) {
+      #asteroid, .arrow { animation: none !important; transition: none !important; }
+    }
+
+    canvas.full { position: absolute; inset: 0; width: 100%; height: 100%; display:block; z-index: 0; }
+  </style>
+</head>
+<body>
+
+  <!-- HERO -->
+  <main class="min-h-screen relative flex items-center justify-center text-center overflow-hidden">
+    <canvas id="stars" class="full" aria-hidden="true"></canvas>
+
+    <div class="relative z-10 px-6">
+      <h1 class="text-white title" style="font-size: clamp(2rem,5vw,4rem)">READY FOR</h1>
+      <h2 class="text-white subtitle" style="font-size: clamp(2.4rem,8vw,6rem)">VISUALISING ASTEROIDS</h2>
+
+      <div class="mt-8 flex justify-center">
+        <div id="asteroid" aria-hidden="true"></div>
+      </div>
+
+      <button id="enter" class="mt-10 text-sm text-gray-300 flex flex-col items-center focus:outline-none" aria-label="Enter visualization">
+        <span>Swipe / Scroll to enter</span>
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="img" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </button>
+    </div>
+  </main>
+
+  <!-- Placeholder for next page -->
+  <section id="sim" class="min-h-screen bg-[#030315]"></section>
+
+  <!-- JS: starfield + gestures -->
+  <script>
+    /* Starfield (lightweight) */
+    const canvas = document.getElementById('stars');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      createStars();
+    }
+
+    let stars = [];
+    function createStars() {
+      const area = canvas.width * canvas.height;
+      const count = Math.max(60, Math.floor(area / 7000));
+      stars = Array.from({length: count}, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.4 + 0.2,
+        vx: (Math.random() - 0.5) * 0.05,
+        vy: (Math.random() - 0.5) * 0.05
+      }));
+    }
+
+    window.addEventListener('resize', resizeCanvas, {passive:true});
+    resizeCanvas();
+
+    let raf;
+    function render() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      // background gradient
+      const g = ctx.createLinearGradient(0,0,0,canvas.height);
+      g.addColorStop(0, '#000000');
+      g.addColorStop(1, '#020207');
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      ctx.globalAlpha = 0.95;
+      ctx.fillStyle = '#ffffff';
+      for (const s of stars) {
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+        s.x += s.vx;
+        s.y += s.vy;
+        if (s.x < 0) s.x = canvas.width;
+        if (s.x > canvas.width) s.x = 0;
+        if (s.y < 0) s.y = canvas.height;
+        if (s.y > canvas.height) s.y = 0;
+      }
+
+      raf = requestAnimationFrame(render);
+    }
+    render();
+
+    /* Enter behavior: click, wheel, swipe */
+    const enterBtn = document.getElementById('enter');
+    function goToSim() {
+      document.getElementById('sim').scrollIntoView({ behavior: 'smooth' });
+    }
+    enterBtn.addEventListener('click', goToSim);
+
+    // wheel detection (desktop)
+    let wheelCooldown = false;
+    window.addEventListener('wheel', (e) => {
+      if (wheelCooldown) return;
+      if (e.deltaY > 50) {
+        wheelCooldown = true;
+        goToSim();
+        setTimeout(() => (wheelCooldown = false), 600);
+      }
+    }, {passive:true});
+
+    // touch swipe (mobile)
+    let touchStartY = null;
+    window.addEventListener('touchstart', (e) => { touchStartY = e.changedTouches[0].clientY; }, {passive:true});
+    window.addEventListener('touchend', (e) => {
+      if (touchStartY === null) return;
+      const dy = touchStartY - e.changedTouches[0].clientY;
+      if (dy > 60) { // swipe up
+        goToSim();
+      }
+      touchStartY = null;
+    }, {passive:true});
+
+    // Accessibility: respect reduced motion preference
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      cancelAnimationFrame(raf);
+      // CSS already disables the asteroid spin via media query
+    }
+  </script>
+</body>
+</html>

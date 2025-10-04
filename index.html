@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Asteroid Site — With PPT Viewer</title>
+  <style>
+    body,html{margin:0;height:100%;overflow:hidden;background:#000;color:#fff;font-family:sans-serif;}
+    iframe{width:100%;height:100%;border:0;}
+    section{width:100%;height:100vh;display:block;}
+    .controls{position:fixed;right:15px;top:50%;transform:translateY(-50%);z-index:1000;display:flex;flex-direction:column;gap:10px;}
+    .btn{width:48px;height:48px;border-radius:10px;background:rgba(255,255,255,0.1);color:#fff;font-size:20px;cursor:pointer;}
+    .pager{position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.5);padding:8px 12px;border-radius:8px;z-index:1000;}
+    .dots{position:fixed;bottom:15px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:1000;}
+    .dot{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,0.3);cursor:pointer;}
+    .dot.active{background:gold;}
+  </style>
+</head>
+<body>
+
+<div class="pager" id="pager">1 / 5</div>
+<div class="controls">
+  <button class="btn" id="prevBtn">▲</button>
+  <button class="btn" id="nextBtn">▼</button>
+</div>
+<div class="dots" id="dots"></div>
+
+<!-- Panels -->
+<div id="container">
+  <section><iframe src="ready.html" title="Ready"></iframe></section>
+  <section><iframe src="asteroids.html" title="Asteroids"></iframe></section>
+  <section><iframe src="asteroidslist.html" id="indexFrame" title="Index"></iframe></section>
+  
+  <!-- New PPT page -->
+  <section id="pptSection" title="PPT Viewer">
+    <!-- Replace LOCAL_PATH with your hosted URL if needed -->
+    <iframe id="pptViewer" src="https://view.officeapps.live.com/op/embed.aspx?src=ateroid%20history.pptx" title="Asteroid History PPT"></iframe>
+  </section>
+
+  <section><iframe src="impactor _2025.html" title="Impactor 2025"></iframe></section>
+</div>
+
+<script>
+const container = document.getElementById('container');
+const sections = Array.from(container.querySelectorAll('section'));
+const total = sections.length;
+let current = 0;
+
+const pager = document.getElementById('pager');
+const dots = document.getElementById('dots');
+const nextBtn = document.getElementById('nextBtn');
+const prevBtn = document.getElementById('prevBtn');
+
+for(let i=0;i<total;i++){
+  const d=document.createElement('div');
+  d.className='dot'+(i===0?' active':'');
+  d.dataset.index=i;
+  d.onclick=()=>goTo(i);
+  dots.appendChild(d);
+}
+
+function update(){
+  pager.textContent=`${current+1} / ${total}`;
+  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===current));
+  sections[current].scrollIntoView({behavior:'smooth'});
+}
+
+function goTo(n){
+  current=Math.max(0,Math.min(total-1,n));
+  update();
+}
+
+nextBtn.onclick=()=>goTo(current+1);
+prevBtn.onclick=()=>goTo(current-1);
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown')goTo(current+1);
+  if(e.key==='ArrowUp')goTo(current-1);
+});
+
+// When user clicks the "View PPT" button inside index.html
+window.addEventListener('message',e=>{
+  if(e.data==='openPPT') goTo(3); // 4th panel (index 3)
+});
+
+// Inject button into index.html once loaded
+const indexFrame=document.getElementById('indexFrame');
+indexFrame.addEventListener('load',()=>{
+  try{
+    const doc=indexFrame.contentDocument||indexFrame.contentWindow.document;
+    const btn=doc.createElement('button');
+    btn.textContent='📊 View Asteroid History PPT';
+    btn.style.cssText='display:block;margin:20px auto;padding:10px 16px;font-size:16px;background:gold;color:black;border-radius:8px;cursor:pointer;';
+    btn.onclick=()=>parent.postMessage('openPPT','*');
+    doc.body.appendChild(btn);
+  }catch(err){console.warn('Unable to inject button:',err);}
+});
+
+update();
+</script>
+
+</body>
+</html>

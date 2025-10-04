@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gravity Tractor Deflection Simulation</title>
+  <style>
+    body{font-family:system-ui,Arial;background:#f7f8fb;color:#111;margin:20px}
+    h1{font-size:22px;margin-bottom:10px}
+    .container{display:flex;gap:20px;align-items:flex-start}
+    .card{background:#fff;padding:16px;border-radius:10px;box-shadow:0 6px 18px rgba(20,30,60,.08)}
+    label{display:block;margin-top:10px;font-weight:600}
+    input{width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin-top:4px}
+    button{margin-top:12px;padding:10px 14px;border:0;border-radius:8px;background:#0b61ff;color:#fff;font-weight:700;cursor:pointer}
+    pre{background:#0f1724;color:#e6eef8;padding:10px;border-radius:8px;overflow:auto;margin-top:10px;white-space:pre-line}
+    #viz{background:#000;border-radius:10px;display:block}
+    .legend{margin-top:8px;font-size:13px;color:#333;text-align:center}
+  </style>
+</head>
+<body>
+  <h1>Gravity Tractor Deflection Simulation</h1>
+  <p>
+    Enter asteroid details and simulate how a gravity tractor alters its trajectory.<br>
+    The <strong>dotted white</strong> line shows the asteroid’s original impact path, and the 
+    <strong>solid green</strong> line shows the deflected path safely bypassing Earth.
+  </p>
+
+  <div class="container">
+    <div class="card" style="width:350px">
+      <label>Asteroid mass (kg)</label>
+      <input id="m_asteroid" type="number" value="1e9">
+
+      <label>Remaining time to keyhole (years)</label>
+      <input id="T_years" type="number" value="5">
+
+      <label>Distance to keyhole (km)</label>
+      <input id="delta_x_km" type="number" value="100">
+
+      <button id="runBtn">Run Simulation</button>
+
+      <pre id="results">No run yet.</pre>
+    </div>
+
+    <div class="card" style="flex:1;text-align:center">
+      <canvas id="viz" width="800" height="500"></canvas>
+      <div class="legend">
+        <span style="color:#fff">⬤</span> Earth | 
+        <span style="border-bottom:2px dotted #fff">&nbsp;&nbsp;&nbsp;&nbsp;</span> Undeflected path | 
+        <span style="border-bottom:2px solid #0f0">&nbsp;&nbsp;&nbsp;&nbsp;</span> Deflected path
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas=document.getElementById('viz');
+    const ctx=canvas.getContext('2d');
+
+    function drawScene(deflectionFactor=0){
+      const W=canvas.width,H=canvas.height;
+      ctx.clearRect(0,0,W,H);
+      ctx.fillStyle='black';
+      ctx.fillRect(0,0,W,H);
+
+      // Earth in center
+      const earthX=W/2, earthY=H/2, earthR=40;
+      ctx.beginPath();
+      ctx.arc(earthX,earthY,earthR,0,Math.PI*2);
+      ctx.fillStyle='#1e88e5';
+      ctx.fill();
+
+      // Undeflected path
+      const startX=100, startY=H/2;
+      ctx.beginPath();
+      ctx.moveTo(startX,startY);
+      ctx.lineTo(earthX,earthY);
+      ctx.strokeStyle='white';
+      ctx.setLineDash([6,6]);
+      ctx.lineWidth=2;
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Deflected path
+      const ctrlX=(earthX+startX)/1.7;
+      const ctrlY=earthY - (150 + deflectionFactor*150); // curvature varies with Δv strength
+      const endX=earthX + 300;
+      const endY=earthY + (deflectionFactor>0.5 ? 200 : 100);
+
+      ctx.beginPath();
+      ctx.moveTo(startX,startY);
+      ctx.quadraticCurveTo(ctrlX,ctrlY,endX,endY);
+      ctx.strokeStyle='lime';
+      ctx.lineWidth=3;
+      ctx.stroke();
+    }
+
+    drawScene(0);
+
+    document.getElementById('runBtn').addEventListener('click',()=>{
+      const G=6.67e-17;
+      const m_asteroid=parseFloat(document.getElementById('m_asteroid').value);
+      const T_years=parseFloat(document.getElementById('T_years').value);
+      const delta_x_km=parseFloat(document.getElementById('delta_x_km').value);
+      const SECONDS_PER_YEAR=365.25*24*60*60;
+
+      const T_seconds=T_years*SECONDS_PER_YEAR;
+      const delta_v_required=delta_x_km/T_seconds;
+
+      // Parameter ranges
+      const masses=[...Array(50).keys()].map(i=>1e2*Math.pow(10,i/10));
+      const distances=[...Array(50).keys()].map(i=>Math.pow(10,-1+i/10));
+
+      let best_m_t=null, best_d=null, min_error=Infinity;
+
+      for(const m_t of masses){
+        for(const d of distances){
+          const delta_v_calc=(G*m_t*T_seconds)/(d**2);
+          const error=Math.abs(delta_v_calc-delta_v_required);
+          if(error<min_error){
+            min_error=error;
+            best_m_t=m_t;
+            best_d=d;
+          }
+        }
+      }
+
+      const achieved_dv=(G*best_m_t*T_seconds)/(best_d**2);
+      const ratio=Math.min(achieved_dv/delta_v_required,2); // cap curvature factor
+      const deflected=achieved_dv>=delta_v_required;
+
+      // Text output with proper newlines
+      const outputLines=[
+        `Required Δv: ${delta_v_required.toExponential(3)} km/s`,
+        ``,
+        `=== BEST SOLUTION FOUND ===`,
+        `Gravity tractor mass: ${best_m_t.toExponential(3)} kg (${(best_m_t/1000).toFixed(2)} tons)`,
+        `Operating distance: ${(best_d*1000).toFixed(2)} m`,
+        `Error in Δv: ${min_error.toExponential(3)} km/s`,
+        `Achieved Δv: ${achieved_dv.toExponential(3)} km/s`,
+        ``,
+        deflected
+          ? `✅ Deflection Successful – Asteroid safely bypasses Earth`
+          : `⚠️ Deflection Insufficient – Further intervention needed`
+      ];
+
+      document.getElementById('results').textContent=outputLines.join("\n");
+      drawScene(ratio); // curvature based on achieved Δv ratio
+    });
+  </script>
+</body>
+</html>
