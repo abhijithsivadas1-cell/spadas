@@ -118,6 +118,13 @@
     .deflectionpyPage pre{background:#0f1724;color:#e6eef8;padding:10px;border-radius:8px;overflow:auto;margin-top:10px;white-space:pre-line}
     .deflectionpyPage #viz{background:#000;border-radius:10px;display:block}
     .deflectionpyPage .legend{margin-top:8px;font-size:13px;color:#333;text-align:center}
+
+    /* Video responsive wrapper */
+    #videoSection { background: #0b0b0b; padding: 36px 20px; color: #fff; text-align:center; }
+    .video-wrapper { max-width:1100px; margin: 0 auto; position:relative; padding-bottom:56.25%; height:0; }
+    .video-wrapper iframe { position:absolute; top:0; left:0; width:100%; height:100%; border:0; }
+    #videoSection h2 { margin:0 0 12px; color:#fff; font-size:20px; }
+    #videoSection p { margin:6px 0 18px; color:#ccc; }
   </style>
 
   <!-- External scripts required by merged pages -->
@@ -349,6 +356,22 @@ This plan demonstrates that small, sustained gravitational interactions can miti
           <span style="border-bottom:2px solid #0f0">&nbsp;&nbsp;&nbsp;&nbsp;</span> Deflected path
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- === YOUTUBE VIDEO SECTION (added at end; responsive) === -->
+  <section id="videoSection" aria-label="Related video">
+    <h2>Related Video: Gravity Tractor Summary & Visuals</h2>
+    <p>Watch the short walkthrough below. The video is embedded and playable directly on this page.</p>
+
+    <div class="video-wrapper">
+      <!-- Embedded YouTube player (responsive) -->
+      <iframe
+        src="https://www.youtube.com/embed/_IbOgnNY3hg?si=2jX5DuNjOaXOmwnW"
+        title="YouTube video player"
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen></iframe>
     </div>
   </section>
 
@@ -848,3 +871,4 @@ This plan demonstrates that small, sustained gravitational interactions can miti
   </script>
 </body>
 </html>
+
